@@ -4,22 +4,24 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
 
-const(
+const (
 	flushTimeout = 5000 //ms
 )
+
 var errUnknownType = errors.New("unknown event type")
 
 type Producer struct {
 	producer *kafka.Producer
 }
 
-func NewProducer(address []string) (*Producer, error){
+func NewProducer(address []string) (*Producer, error) {
 	conf := &kafka.ConfigMap{
-		"bootstrap.servers": strings.Join(address,","),
+		"bootstrap.servers": strings.Join(address, ","),
 	}
 	p, err := kafka.NewProducer(conf)
 	if err != nil {
@@ -29,14 +31,15 @@ func NewProducer(address []string) (*Producer, error){
 	return &Producer{producer: p}, nil
 }
 
-func  (p *Producer) Produce(message, topic string) error{
+func (p *Producer) Produce(message, topic, key string, t time.Time) error {
 	kafkaMsg := &kafka.Message{
-		TopicPartition: kafka.TopicPartition{ 
-			Topic: &topic,
+		TopicPartition: kafka.TopicPartition{
+			Topic:     &topic,
 			Partition: kafka.PartitionAny,
 		},
-		Value: 	[]byte(message),
-		Key: 	nil,
+		Value:     []byte(message),
+		Key:       []byte(key),
+		Timestamp: t,
 	}
 	kafkaChan := make(chan kafka.Event)
 	if err := p.producer.Produce(kafkaMsg, kafkaChan); err != nil {
@@ -54,7 +57,7 @@ func  (p *Producer) Produce(message, topic string) error{
 	}
 }
 
-func (p *Producer) Close(){
+func (p *Producer) Close() {
 	p.producer.Flush(flushTimeout)
 	p.producer.Close()
 }
